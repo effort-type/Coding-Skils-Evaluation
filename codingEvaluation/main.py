@@ -11,6 +11,7 @@ from langchain_community.retrievers import BM25Retriever
 
 import tiktoken
 
+
 def docs_load() -> List[str]:
     """
     문서를 읽는 함수
@@ -99,10 +100,10 @@ def pep8_docs_embedding(chunk):
 
 
 def run():
-    docs_load()
-    text_split()
-    pep8_docs_embedding()
+    docs = docs_load()
+    chunk = text_split(docs)
+    pep8_docs_embedding(chunk)
+
 
 if __name__ == '__main__':
     run()
-
