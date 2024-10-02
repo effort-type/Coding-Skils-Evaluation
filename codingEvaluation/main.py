@@ -1,10 +1,15 @@
 import os
+import shutil
 
 from typing import List
 
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import MarkdownHeaderTextSplitter
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
+from langchain_community.retrievers import BM25Retriever
 
+import tiktoken
 
 def docs_load() -> List[str]:
     """
@@ -59,9 +64,44 @@ def text_split(corpus):
     return chunks
 
 
+def pep8_docs_embedding(chunk):
+    """
+    문서를 임베딩하는 함수
+    """
+
+    model_name = "BAAI/bge-m3"
+    model_kwargs = {'device': 'cuda'}  # gpu를 사용하기 위해 설정, cpu를 사용하려면 cuda -> cpu 변경
+    encode_kwargs = {'normalize_embeddings': True}
+    model = HuggingFaceEmbeddings(
+        model_name=model_name,
+        model_kwargs=model_kwargs,
+        encode_kwargs=encode_kwargs
+    )
+
+    # 벡터 저장소를 저장할 디렉토리
+    pep8_save_directory = "./pep8_chroma"
+
+    print("\n잠시만 기다려주세요.\n\n")
+
+    # 벡터저장소가 이미 존재하는지 확인
+    if os.path.exists(pep8_save_directory):
+        shutil.rmtree(pep8_save_directory)
+        print(f"디렉토리 {pep8_save_directory}가 삭제되었습니다.\n")
+
+    print("코딩 스타일 가이드 PEP8 문서 벡터화를 시작합니다. ")
+    pep8_db = Chroma.from_documents(chunk, model, persist_directory=pep8_save_directory).as_retriever()
+    pep8_bm_db = BM25Retriever.from_documents(
+        chunk
+    )
+    print("코딩 스타일 가이드 PEP8 문서 데이터베이스가 생성되었습니다.\n")
+
+    return pep8_db, pep8_bm_db
+
+
 def run():
     docs_load()
     text_split()
+    pep8_docs_embedding()
 
 if __name__ == '__main__':
     run()
