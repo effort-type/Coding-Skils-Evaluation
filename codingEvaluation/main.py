@@ -1,6 +1,7 @@
 import os
 import shutil
 from dotenv import load_dotenv
+import pandas as pd
 
 from typing import List
 
@@ -218,6 +219,65 @@ def evaluate(llm, pep8_db, pep8_bm_db, query):
     return response
 
 
+def evaluate_code_list_load(file_path='input/code.xlsx', sheet_name='example'):
+    """
+    input/code.xlsx 파일 저장된 코드 목록을 읽어 반환하는 함수
+
+    :return:
+    """
+
+    # 엑셀 파일의 example 시트를 읽어옵니다. 첫 번째 행을 헤더로 사용합니다.
+    df = pd.read_excel(file_path, sheet_name=sheet_name)
+
+    # 'Code'라는 열 이름이 존재하는지 확인합니다.
+    if 'Code' in df.columns:
+        # A2부터 끝까지 'Code' 열의 내용을 리스트로 가져옵니다.
+        code_list = df['Code'].dropna().tolist()
+        return code_list
+    else:
+        # 'Code' 열이 없을 경우 빈 리스트 반환
+        return []
+
+
+def evaluate_result_save(inputs, outputs):
+    """
+    결과를 저장하는 함수
+    inputs: 질문으로 입력한 코드 (string)
+    outputs: 거대언어모델이 생성한 응답 리스트 (list of strings)
+    """
+    # 파일 이름 지정
+    file_name = 'output/output.md'
+
+    # 마크다운 형식으로 저장할 내용 생성
+    markdown_content = "# Evaluation Results\n\n"
+
+    # 목차 생성
+    markdown_content += "## Table of Contents\n"
+    for idx in range(len(inputs)):
+        markdown_content += f"- [Input {idx + 1}](#input-{idx + 1})\n"
+        markdown_content += f"  - [Response {idx + 1}](#response-{idx + 1})\n"
+
+    markdown_content += "\n---\n\n"
+
+    # 입력과 그에 해당하는 응답을 매칭하여 저장
+    for idx, (input_code, response) in enumerate(zip(inputs, outputs)):
+        markdown_content += f"## Input {idx + 1}\n"
+        markdown_content += "```python\n"
+        markdown_content += f"{input_code}\n"
+        markdown_content += "```\n\n"
+
+        markdown_content += f"### Response {idx + 1}\n"
+        markdown_content += f"{response}\n\n"
+
+        # 구분선 추가
+        markdown_content += "---\n\n"
+
+    # 파일에 내용 저장
+    with open(file_name, 'w', encoding='utf-8') as file:
+        file.write(markdown_content)
+    print(f"Results saved to {file_name}")
+
+
 def run():
     docs = docs_load()
     chunk = text_split(docs)
@@ -225,15 +285,18 @@ def run():
 
     llm = chat_llm()
 
-    query = """
-    def MyFunction():
-        a=10
-        b = 20
-        sum=a+b
-        print('Sum:', sum )
-    """
+    # 코드 리스트 읽기
+    code_list = evaluate_code_list_load()
 
-    response = evaluate(llm, pep8_db, pep8_bm_db, query)
+    # 코드 평가
+    response = []
+    for query in code_list:
+        response.append(evaluate(llm, pep8_db, pep8_bm_db, query))
+
+    # print(response)
+
+    # 결과 저장
+    evaluate_result_save(code_list, response)
 
 
 if __name__ == '__main__':
