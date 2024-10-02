@@ -1,5 +1,6 @@
 import os
 import shutil
+from dotenv import load_dotenv
 
 from typing import List
 
@@ -8,6 +9,8 @@ from langchain_text_splitters import MarkdownHeaderTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_community.retrievers import BM25Retriever
+from langchain_openai import ChatOpenAI
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 
 import tiktoken
 
@@ -99,10 +102,41 @@ def pep8_docs_embedding(chunk):
     return pep8_db, pep8_bm_db
 
 
+def chat_llm():
+    """
+    코딩 역량 평가에 사용되는 거대언어모델을 생성하는 함수
+    """
+
+    load_dotenv('.env')
+
+    # LM Studio API를 사용할 경우
+    llm = ChatOpenAI(
+        model_name="bartowski/gemma-2-9b-it-GGUF",
+        base_url=os.getenv("LM_LOCAL_URL"),
+        api_key="lm-studio",
+        temperature=0,
+        streaming=True,
+        callbacks=[StreamingStdOutCallbackHandler()],
+    )
+
+    # OpenAI API를 사용할 경우
+    # llm = ChatOpenAI(
+    #     model_name="gpt-4o-mini",
+    #     api_key=os.getenv("OPENAI_API_KEY"),
+    #     temperature=0,
+    #     streaming=True,
+    #     callbacks=[StreamingStdOutCallbackHandler()],
+    # )
+
+    return llm
+
+
 def run():
     docs = docs_load()
     chunk = text_split(docs)
-    pep8_docs_embedding(chunk)
+    pep8_db, pep8_bm_db = pep8_docs_embedding(chunk)
+
+    llm = chat_llm()
 
 
 if __name__ == '__main__':
